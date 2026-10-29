@@ -6,6 +6,7 @@ export const CUSHION_RESTITUTION = 0.78;
 export const BALL_FRICTION = 0.16;
 export const CUSHION_GRAB = 0.08;
 export const SPIN_GRIP = 2.5;
+export const SWERVE = 1.15;
 export const MIN_VEL = 0.04;
 
 export function speedFromPower(power: number): number {
@@ -217,6 +218,15 @@ export function stepSimulation(balls: Ball[], table: Table, dt: number, tracker:
       ball.vz -= (slipZ * close) / 3.5;
       ball.sx += (slipX * close * 2.5) / 3.5;
       ball.sz += (slipZ * close * 2.5) / 3.5;
+    }
+    const speed = Math.hypot(ball.vx, ball.vz);
+    if (speed > 0.08 && Math.abs(ball.side) > 0.03 && slip > 0.04) {
+      const grip = Math.min(1, slip / speed);
+      const bend = ball.side * grip * SWERVE * dt;
+      const vx = ball.vx;
+      const vz = ball.vz;
+      ball.vx += (vz / speed) * bend;
+      ball.vz -= (vx / speed) * bend;
     }
     ball.vx *= drag;
     ball.vz *= drag;

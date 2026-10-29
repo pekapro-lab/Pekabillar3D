@@ -296,9 +296,9 @@ export function PekabillarApp() {
               Dos en la mesa
             </button>
             <p className="text-xs leading-relaxed text-muted">
-              Arrastra sobre el paño para apuntar. La potencia va en la barra. Efecto es izquierda o derecha; altura,
-              avance o retroceso. Flechas, espacio o clic de la rueda para golpear. Gira la rueda para acercarte hasta
-              ver el tapete. Botón derecho para girar la cámara.
+              Arrastra sobre el paño para apuntar. La potencia va en la barra. El efecto lateral hace que la blanca curve
+              mientras gira; la altura es avance o retroceso. Flechas, espacio o clic de la rueda para golpear. Gira la
+              rueda para acercarte hasta ver el tapete. Botón derecho para girar la cámara.
             </p>
           </div>
         ) : (

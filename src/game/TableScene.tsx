@@ -464,7 +464,7 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
     if (badge.current) badge.current.position.set(live.x, live.radius + 0.001, live.z);
   }, [id, worldRef]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const live = worldRef.current.balls.find((item) => item.id === id);
     const mesh = ref.current;
     if (!live || !mesh) return;
@@ -483,7 +483,7 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
       rollAxis.set(-dz, 0, dx).normalize();
       mesh.rotateOnWorldAxis(rollAxis, dist / live.radius);
     }
-    if (Math.abs(live.side) > 0.02) mesh.rotateOnWorldAxis(upAxis, (-live.side / live.radius) * 0.016);
+    if (Math.abs(live.side) > 0.02) mesh.rotateOnWorldAxis(upAxis, (-live.side / live.radius) * Math.min(delta, 0.05));
     if (shade.current) {
       shade.current.visible = true;
       shade.current.position.set(live.x, 0.004, live.z);
