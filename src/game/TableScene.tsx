@@ -42,33 +42,20 @@ function feltMaps(anisotropy: number): { map: CanvasTexture; bump: CanvasTexture
   map.colorSpace = SRGBColorSpace;
   map.anisotropy = anisotropy;
   if (ctx) {
-    ctx.fillStyle = "#0c6434";
-    ctx.fillRect(0, 0, size, size);
-    for (let i = 0; i < 14000; i++) {
-      const x = Math.random() * size;
-      const y = Math.random() * size;
-      const len = 5 + Math.random() * 11;
-      ctx.strokeStyle = Math.random() > 0.45 ? "rgba(0,20,8,0.16)" : "rgba(210,255,220,0.1)";
-      ctx.lineWidth = Math.random() > 0.8 ? 1.4 : 1;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + len, y + len * 0.22);
-      ctx.stroke();
+    const image = ctx.createImageData(size, size);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const nap = Math.sin(x * 0.42 + y * 1.65) * 0.035 + Math.sin(y * 0.9) * 0.02;
+        const grain = (Math.random() - 0.5) * 0.045;
+        const v = 0.96 + nap + grain;
+        const i = (y * size + x) * 4;
+        image.data[i] = 11 * v;
+        image.data[i + 1] = 92 * v;
+        image.data[i + 2] = 48 * v;
+        image.data[i + 3] = 255;
+      }
     }
-    for (let i = 0; i < 28; i++) {
-      ctx.fillStyle = Math.random() > 0.5 ? "rgba(4,40,18,0.07)" : "rgba(120,190,110,0.05)";
-      ctx.beginPath();
-      ctx.ellipse(
-        Math.random() * size,
-        Math.random() * size,
-        18 + Math.random() * 40,
-        8 + Math.random() * 18,
-        Math.random() * Math.PI,
-        0,
-        Math.PI * 2,
-      );
-      ctx.fill();
-    }
+    ctx.putImageData(image, 0, 0);
     map.needsUpdate = true;
   }
 
@@ -85,8 +72,8 @@ function feltMaps(anisotropy: number): { map: CanvasTexture; bump: CanvasTexture
     const image = bumpCtx.createImageData(256, 256);
     for (let y = 0; y < 256; y++) {
       for (let x = 0; x < 256; x++) {
-        const nap = Math.sin(x * 0.85 + y * 0.22) * 18;
-        const n = 120 + nap + Math.random() * 28;
+        const nap = (Math.sin(y * 1.8 + x * 0.15) + 1) * 10;
+        const n = 132 + nap + (Math.random() - 0.5) * 10;
         const i = (y * 256 + x) * 4;
         image.data[i] = n;
         image.data[i + 1] = n;
@@ -111,19 +98,23 @@ function woodMap(anisotropy: number, dark = false): CanvasTexture {
   tex.colorSpace = SRGBColorSpace;
   tex.anisotropy = anisotropy;
   if (!ctx) return tex;
-  ctx.fillStyle = dark ? "#2a1812" : "#6a3b24";
+  const grain = ctx.createLinearGradient(0, 0, 256, 0);
+  grain.addColorStop(0, dark ? "#1a100c" : "#4a2816");
+  grain.addColorStop(0.5, dark ? "#3a2418" : "#7a4630");
+  grain.addColorStop(1, dark ? "#1c120e" : "#3e2214");
+  ctx.fillStyle = grain;
   ctx.fillRect(0, 0, 256, 512);
-  for (let x = 0; x < 256; x++) {
-    const tone = dark ? 28 + (x % 9) * 3 : 78 + (x % 11) * 5;
-    ctx.strokeStyle = `rgba(${tone + 36},${Math.floor(tone * 0.46)},${Math.floor(tone * 0.22)},0.42)`;
+  for (let x = 0; x < 256; x += 2) {
+    const tone = dark ? 36 + (x % 13) : 90 + (x % 17) * 2;
+    ctx.strokeStyle = `rgba(${tone + 28},${Math.floor(tone * 0.42)},${Math.floor(tone * 0.2)},0.22)`;
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    for (let y = 0; y <= 512; y += 10) ctx.lineTo(x + Math.sin(y * 0.05 + x * 0.2) * 1.4, y);
+    ctx.lineTo(x + Math.sin(x) * 2, 512);
     ctx.stroke();
   }
-  for (let i = 0; i < 1400; i++) {
-    ctx.fillStyle = "rgba(20,8,4,0.16)";
-    ctx.fillRect(Math.random() * 256, Math.random() * 512, 1, 2 + Math.random() * 8);
+  for (let i = 0; i < 500; i++) {
+    ctx.fillStyle = "rgba(28,12,6,0.12)";
+    ctx.fillRect(Math.random() * 256, Math.random() * 512, 1, 6 + Math.random() * 18);
   }
   tex.needsUpdate = true;
   return tex;
@@ -357,11 +348,11 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.64, 0]} receiveShadow>
         <planeGeometry args={[14, 16]} />
-        <meshStandardMaterial map={woodDark} color="#6a5344" roughness={0.86} metalness={0.02} />
+        <meshStandardMaterial map={woodDark} color="#3a2a22" roughness={0.78} metalness={0.02} />
       </mesh>
       <mesh position={[0, -0.11, 0]} castShadow receiveShadow>
         <boxGeometry args={[width + 0.42, 0.16, length + 0.42]} />
-        <meshStandardMaterial map={wood} roughness={0.48} metalness={0.06} />
+        <meshPhysicalMaterial map={wood} roughness={0.42} metalness={0.04} clearcoat={0.28} clearcoatRoughness={0.4} />
       </mesh>
       {[
         [-1, -1],
@@ -377,7 +368,7 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
 
       <mesh position={[0, -0.012, 0]} receiveShadow>
         <boxGeometry args={[width, 0.024, length]} />
-        <meshStandardMaterial map={cloth.map} bumpMap={cloth.bump} bumpScale={0.012} color="#ffffff" roughness={0.84} metalness={0} />
+        <meshStandardMaterial map={cloth.map} bumpMap={cloth.bump} bumpScale={0.0035} color="#d7ffe4" roughness={0.74} metalness={0} />
       </mesh>
 
       <mesh position={[0, 0.002, headZ]}>
@@ -411,11 +402,15 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
         <group key={i}>
           <mesh position={[x, railH / 2, z]} castShadow receiveShadow>
             <boxGeometry args={[thick, railH, sideLen]} />
-            <meshStandardMaterial color="#146b3a" roughness={0.62} />
+            <meshStandardMaterial color="#187243" roughness={0.58} />
           </mesh>
-          <mesh position={[x + Math.sign(x) * 0.02, railH * 0.72, z]} castShadow>
-            <boxGeometry args={[thick * 0.72, railH * 0.42, sideLen]} />
-            <meshStandardMaterial map={wood} roughness={0.5} metalness={0.05} />
+          <mesh position={[Math.sign(x) * -0.02 + x, 0.026, z]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.02, 0.02, sideLen * 0.98, 16]} />
+            <meshStandardMaterial color="#1f8a4e" roughness={0.48} />
+          </mesh>
+          <mesh position={[x + Math.sign(x) * 0.02, railH * 0.78, z]} castShadow>
+            <boxGeometry args={[thick * 0.7, railH * 0.36, sideLen]} />
+            <meshPhysicalMaterial map={wood} roughness={0.4} metalness={0.04} clearcoat={0.22} clearcoatRoughness={0.45} />
           </mesh>
         </group>
       ))}
@@ -423,18 +418,22 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
         <group key={z}>
           <mesh position={[0, railH / 2, z]} castShadow receiveShadow>
             <boxGeometry args={[endLen, railH, thick]} />
-            <meshStandardMaterial color="#146b3a" roughness={0.62} />
+            <meshStandardMaterial color="#187243" roughness={0.58} />
           </mesh>
-          <mesh position={[0, railH * 0.72, z + Math.sign(z) * 0.02]} castShadow>
-            <boxGeometry args={[endLen, railH * 0.42, thick * 0.72]} />
-            <meshStandardMaterial map={wood} roughness={0.5} metalness={0.05} />
+          <mesh position={[0, 0.026, z + Math.sign(z) * -0.02]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.02, 0.02, endLen * 0.98, 16]} />
+            <meshStandardMaterial color="#1f8a4e" roughness={0.48} />
+          </mesh>
+          <mesh position={[0, railH * 0.78, z + Math.sign(z) * 0.02]} castShadow>
+            <boxGeometry args={[endLen, railH * 0.36, thick * 0.7]} />
+            <meshPhysicalMaterial map={wood} roughness={0.4} metalness={0.04} clearcoat={0.22} clearcoatRoughness={0.45} />
           </mesh>
         </group>
       ))}
       {sights.map(([x, z]) => (
         <mesh key={`${x}-${z}`} position={[x, railH + 0.004, z]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.012, 12]} />
-          <meshPhysicalMaterial color="#e2c27a" metalness={0.85} roughness={0.25} />
+          <circleGeometry args={[0.008, 16]} />
+          <meshPhysicalMaterial color="#d7b56a" metalness={0.8} roughness={0.32} />
         </mesh>
       ))}
     </group>
@@ -460,8 +459,8 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
     const live = worldRef.current.balls.find((item) => item.id === id);
     if (!live || !ref.current) return;
     ref.current.position.set(live.x, live.radius, live.z);
-    if (shade.current) shade.current.position.set(live.x, 0.006, live.z);
-    if (badge.current) badge.current.position.set(live.x, live.radius * 1.85, live.z);
+    if (shade.current) shade.current.position.set(live.x, 0.004, live.z);
+    if (badge.current) badge.current.position.set(live.x, live.radius + 0.001, live.z);
   }, [id, worldRef]);
 
   useFrame(() => {
@@ -485,11 +484,11 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
     }
     if (shade.current) {
       shade.current.visible = true;
-      shade.current.position.set(live.x, 0.006, live.z);
+      shade.current.position.set(live.x, 0.004, live.z);
     }
     if (badge.current) {
       badge.current.visible = true;
-      badge.current.position.set(live.x, live.radius * 1.85, live.z);
+      badge.current.position.set(live.x, live.radius + 0.001, live.z);
     }
   });
 
@@ -501,16 +500,16 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
         <meshPhysicalMaterial
           map={tex ?? undefined}
           color={tex ? "#ffffff" : ball.color}
-          roughness={ball.isCue ? 0.07 : 0.16}
-          metalness={0.02}
+          roughness={ball.isCue ? 0.04 : 0.1}
+          metalness={0}
           clearcoat={1}
-          clearcoatRoughness={0.07}
-          envMapIntensity={1.05}
+          clearcoatRoughness={0.03}
+          envMapIntensity={0.55}
         />
       </mesh>
       {badgeTex && (
-        <mesh ref={badge} rotation={[-Math.PI / 2, 0, 0]} position={[ball.x, ball.radius * 1.85, ball.z]}>
-          <circleGeometry args={[ball.radius * 0.72, 24]} />
+        <mesh ref={badge} rotation={[-Math.PI / 2, 0, 0]} position={[ball.x, ball.radius + 0.001, ball.z]}>
+          <circleGeometry args={[ball.radius * 0.36, 24]} />
           <meshBasicMaterial map={badgeTex} transparent depthWrite={false} />
         </mesh>
       )}
@@ -527,6 +526,7 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
 function CueAndGuides({ worldRef }: { worldRef: RefObject<World> }) {
   const cue = useRef<Group>(null);
   const shaft = useRef<Mesh>(null);
+  const ferrule = useRef<Mesh>(null);
   const tip = useRef<Mesh>(null);
   const aim = useRef<Mesh>(null);
   const ghost = useRef<Mesh>(null);
@@ -544,7 +544,8 @@ function CueAndGuides({ worldRef }: { worldRef: RefObject<World> }) {
       stick.position.set(ball.x, ball.radius, ball.z);
       stick.rotation.set(0.08, world.aimAngle, 0);
       if (shaft.current) shaft.current.position.z = -(pull + length / 2);
-      if (tip.current) tip.current.position.z = -pull + 0.01;
+      if (ferrule.current) ferrule.current.position.z = -pull + 0.02;
+      if (tip.current) tip.current.position.z = -pull + 0.004;
     }
 
     const human = world.mode === "hotseat" || world.score.player === 1;
@@ -582,12 +583,16 @@ function CueAndGuides({ worldRef }: { worldRef: RefObject<World> }) {
     <>
       <group ref={cue}>
         <mesh ref={shaft} rotation={[Math.PI / 2, 0, 0]} position={[0, 0.035, -0.8]}>
-          <cylinderGeometry args={[0.007, 0.016, length, 16]} />
-          <meshPhysicalMaterial color="#c48a4a" roughness={0.38} clearcoat={0.35} clearcoatRoughness={0.3} />
+          <cylinderGeometry args={[0.0065, 0.013, length, 20]} />
+          <meshPhysicalMaterial color="#e2c08a" roughness={0.34} clearcoat={0.45} clearcoatRoughness={0.28} />
+        </mesh>
+        <mesh ref={ferrule} rotation={[Math.PI / 2, 0, 0]} position={[0, 0.035, -0.16]}>
+          <cylinderGeometry args={[0.0064, 0.0064, 0.034, 16]} />
+          <meshStandardMaterial color="#f6f3ec" roughness={0.32} />
         </mesh>
         <mesh ref={tip} position={[0, 0.035, -0.16]}>
-          <sphereGeometry args={[0.009, 12, 12]} />
-          <meshStandardMaterial color="#efeae2" roughness={0.28} />
+          <sphereGeometry args={[0.007, 12, 10]} />
+          <meshStandardMaterial color="#2f6d4a" roughness={0.62} />
         </mesh>
       </group>
       <mesh ref={aim} position={[0, 0.008, 0]}>
@@ -700,16 +705,16 @@ function LiveTable({
     <>
       <color attach="background" args={["#100e0c"]} />
       <HallLight />
-      <hemisphereLight args={["#fff4e4", "#163226", 0.28]} />
-      <ambientLight intensity={0.06} />
+      <hemisphereLight args={["#fff8ee", "#14281e", 0.18]} />
+      <ambientLight intensity={0.035} />
       <directionalLight
-        position={[2.2, 7.4, 1.4]}
-        intensity={2.35}
+        position={[0.6, 6.8, 0.2]}
+        intensity={2.05}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
-        shadow-bias={-0.00012}
-        shadow-normalBias={0.012}
+        shadow-bias={-0.00018}
+        shadow-normalBias={0.02}
         shadow-camera-near={2}
         shadow-camera-far={16}
         shadow-camera-left={-2.3}
@@ -717,16 +722,8 @@ function LiveTable({
         shadow-camera-top={2.7}
         shadow-camera-bottom={-2.7}
       />
-      <directionalLight position={[-3.4, 3.6, -2.4]} intensity={0.42} color="#d5e2ff" />
-      <spotLight position={[0, 4.8, 0.15]} angle={0.72} penumbra={0.75} intensity={10} distance={11} decay={2} color="#fff3df" />
-      <mesh position={[0, 1.72, 0]}>
-        <boxGeometry args={[0.16, 0.045, 2.3]} />
-        <meshStandardMaterial color="#1a1612" metalness={0.35} roughness={0.4} />
-      </mesh>
-      <mesh position={[0, 1.69, 0]}>
-        <boxGeometry args={[0.1, 0.012, 2.1]} />
-        <meshStandardMaterial color="#fff1d2" emissive="#fff1d2" emissiveIntensity={0.65} />
-      </mesh>
+      <directionalLight position={[-2.8, 3.2, -1.6]} intensity={0.28} color="#d7e4ff" />
+      <spotLight position={[0, 3.8, 0.05]} angle={0.95} penumbra={0.85} intensity={16} distance={9} decay={2} color="#fff4e2" />
       <TableMesh worldRef={worldRef} />
       <group key={generation}>
         {ids.map((id) => (
@@ -777,7 +774,7 @@ export function TableScene({
       gl={{ antialias: true }}
       onCreated={({ gl, camera }) => {
         gl.toneMapping = ACESFilmicToneMapping;
-        gl.toneMappingExposure = 1.05;
+        gl.toneMappingExposure = 0.98;
         camera.lookAt(0, 0, -0.15);
       }}
     >

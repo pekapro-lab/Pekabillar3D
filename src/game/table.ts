@@ -2,10 +2,10 @@ import type { Ball, BallType, Group, PlayerId, ScoreState, Spot, Table } from ".
 
 export const BALL_R = 0.05;
 
-const SOLIDS = ["#e6b325", "#1d4ed8", "#d02323", "#6d28d9", "#ea6a12", "#178a3e", "#7a2433"];
+const SOLIDS = ["#f0c31a", "#1d4e9c", "#c81e1e", "#5c2d86", "#e25c14", "#1c7a3c", "#7a2430"];
 
 export function ballStyle(number: number): { color: string; stripe: boolean; type: BallType } {
-  if (number <= 0) return { color: "#f4f0e6", stripe: false, type: "cue" };
+  if (number <= 0) return { color: "#f3efe6", stripe: false, type: "cue" };
   if (number === 8) return { color: "#141414", stripe: false, type: "eight" };
   const stripe = number > 8;
   const color = SOLIDS[(stripe ? number - 9 : number - 1) % SOLIDS.length] ?? "#d02323";
