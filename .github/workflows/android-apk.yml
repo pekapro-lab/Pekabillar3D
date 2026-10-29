@@ -1,0 +1,109 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install JS deps
+        run: |
+          npm ci
+          # Capacitor solo para la APK; no se añade a package.json para no tocar el build web
+          npm i --no-save @capacitor/cli@^8.5.3 @capacitor/core@^8.5.3 @capacitor/android@^8.5.3
+
+      - name: Build web (relative base for Capacitor)
+        run: |
+          npx vite build -c vite.apk.config.ts
+          npx cap sync android
+
+      - name: Decode release keystore
+        env:
+          KS_B64: ${{ secrets.PEKAR_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then echo "::error::PEKAR_KEYSTORE_BASE64 secret missing"; exit 1; fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "PEKAR_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build release APK (zipalign, then sign v1+v2+v3)
+        working-directory: android
+        env:
+          PEKAR_KEYSTORE_PASSWORD: ${{ secrets.PEKAR_KEYSTORE_PASSWORD }}
+          PEKAR_KEY_PASSWORD: ${{ secrets.PEKAR_KEY_PASSWORD }}
+          PEKAR_KEY_ALIAS: ${{ secrets.PEKAR_KEY_ALIAS }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Verify alignment + signature
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          $BT/zipalign -c -P 16 4 "$APK"
+          $BT/apksigner verify --verbose --print-certs "$APK" | grep -E "Verified using v[123] |certificate SHA-256"
+          $BT/apksigner verify --print-certs "$APK" | grep -q "668fd481c81e7c388f8f17ce8a8d5e27b951b005f32262b175d36ebe25332443" || { echo "::error::Unexpected signing certificate"; exit 1; }
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Prepare artifact
+        id: prep
+        run: |
+          SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then VERSION="1.0.0-dev"; fi
+          OUT="PekaBillar3D-${VERSION}.apk"
+          cp "$SRC" "$OUT"
+          echo "apk=$OUT" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          sha256sum "$OUT" | tee "$OUT.sha256"
+          ls -lh "$OUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PekaBillar3D-apk
+          path: |
+            ${{ steps.prep.outputs.apk }}
+            ${{ steps.prep.outputs.apk }}.sha256
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK="${{ steps.prep.outputs.apk }}"
+          VER="${{ steps.prep.outputs.version }}"
+          SUM=$(cut -d' ' -f1 "$APK.sha256")
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then gh release upload "$GITHUB_REF_NAME" "$APK" --clobber; exit 0; fi
+          gh release create "$GITHUB_REF_NAME" "$APK" \
+            --title "Peka Billar 3D $VER" \
+            --notes "$(cat <<NOTES
+          APK de Android de **Peka Billar 3D** (Capacitor), bola 8 en una mesa 3D contra la IA o a dos. Funciona sin conexión (las fuentes se cargan de internet si hay red).
+
+          - Paquete: \`com.pekapro.pekabillar3d\`
+          - Android 7 (API 24) o superior
+
+          **Instalar:** descarga el APK → permite apps desconocidas → Instalar.
+          Si Play Protect avisa, elige *Instalar de todas formas* (no está en Play Store).
+
+          SHA-256: \`$SUM\`
+          NOTES
+          )"

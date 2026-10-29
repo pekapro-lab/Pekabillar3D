@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Peka Billar 3D</string>
+    <string name="title_activity_main">Peka Billar 3D</string>
+    <string name="package_name">com.pekapro.pekabillar3d</string>
+    <string name="custom_url_scheme">com.pekapro.pekabillar3d</string>
+</resources>

@@ -10,3 +10,9 @@ AGENTS.md
 .env
 .env.*
 *.log
+www/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/keystore.properties

@@ -1,0 +1,7 @@
+{
+  "appId": "com.pekapro.pekabillar3d",
+  "appName": "Peka Billar 3D",
+  "webDir": "www",
+  "android": { "allowMixedContent": false, "backgroundColor": "#100e0c" },
+  "server": { "androidScheme": "https" }
+}
