@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #100e0c;
+  --color-surface: #1c1814;
+  --color-surface-2: #2a231c;
+  --color-fg: #f3ead7;
+  --color-muted: #a89880;
+  --color-brass: #d4a656;
+  --color-brass-2: #f0d7a0;
+  --color-baize: #146b3a;
+  --color-line: #3d342b;
+  --color-foul: #e06a58;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  html,
+  body {
+    height: 100%;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--font-sans);
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 2px;
+  }
+
+  input[type="range"] {
+    accent-color: var(--color-brass);
+    height: 1.75rem;
+  }
+
+  .table-stage,
+  .table-stage canvas {
+    touch-action: none;
+  }
+
+  .table-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 42%, transparent 46%, rgba(8, 6, 4, 0.42) 100%);
+  }
+}
