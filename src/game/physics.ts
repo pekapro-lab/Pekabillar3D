@@ -1,13 +1,18 @@
 import type { Ball, Table, Tracker } from "./types";
 
 export const FRICTION = 0.78;
-export const RESTITUTION = 0.94;
+export const RESTITUTION = 0.93;
 export const CUSHION_RESTITUTION = 0.78;
-export const BALL_FRICTION = 0.16;
+export const BALL_FRICTION = 0.09;
 export const CUSHION_GRAB = 0.08;
-export const SPIN_GRIP = 2.5;
-export const SWERVE = 1.15;
+export const SLIDE_ACCEL = 1.7;
+export const ROLL_ACCEL = 0.4;
+export const SWERVE = 1.05;
 export const MIN_VEL = 0.04;
+
+function cushionRestitution(speed: number): number {
+  return Math.min(0.86, Math.max(0.64, 0.84 - Math.abs(speed) * 0.04));
+}
 
 export function speedFromPower(power: number): number {
   const p = Math.max(0, Math.min(100, power));
@@ -104,7 +109,7 @@ function resolveCushion(ball: Ball, table: Table): boolean {
   if (ball.x < minX) {
     ball.x = minX;
     if (ball.vx < 0) {
-      ball.vx = -ball.vx * CUSHION_RESTITUTION;
+      ball.vx = -ball.vx * cushionRestitution(ball.vx);
       ball.vz *= 1 - CUSHION_GRAB;
       bounceRail(ball, "z", -1);
       hit = true;
@@ -112,7 +117,7 @@ function resolveCushion(ball: Ball, table: Table): boolean {
   } else if (ball.x > maxX) {
     ball.x = maxX;
     if (ball.vx > 0) {
-      ball.vx = -ball.vx * CUSHION_RESTITUTION;
+      ball.vx = -ball.vx * cushionRestitution(ball.vx);
       ball.vz *= 1 - CUSHION_GRAB;
       bounceRail(ball, "z", 1);
       hit = true;
@@ -121,7 +126,7 @@ function resolveCushion(ball: Ball, table: Table): boolean {
   if (ball.z < minZ) {
     ball.z = minZ;
     if (ball.vz < 0) {
-      ball.vz = -ball.vz * CUSHION_RESTITUTION;
+      ball.vz = -ball.vz * cushionRestitution(ball.vz);
       ball.vx *= 1 - CUSHION_GRAB;
       bounceRail(ball, "x", -1);
       hit = true;
@@ -129,7 +134,7 @@ function resolveCushion(ball: Ball, table: Table): boolean {
   } else if (ball.z > maxZ) {
     ball.z = maxZ;
     if (ball.vz > 0) {
-      ball.vz = -ball.vz * CUSHION_RESTITUTION;
+      ball.vz = -ball.vz * cushionRestitution(ball.vz);
       ball.vx *= 1 - CUSHION_GRAB;
       bounceRail(ball, "x", 1);
       hit = true;
@@ -208,31 +213,40 @@ export function stepSimulation(balls: Ball[], table: Table, dt: number, tracker:
       ball.vz = 0;
       continue;
     }
-    const drag = Math.max(0, 1 - FRICTION * dt);
     const slipX = ball.vx - ball.sx;
     const slipZ = ball.vz - ball.sz;
     const slip = Math.hypot(slipX, slipZ);
-    if (slip > 0.0008) {
-      const close = Math.min(1, SPIN_GRIP * dt);
-      ball.vx -= (slipX * close) / 3.5;
-      ball.vz -= (slipZ * close) / 3.5;
-      ball.sx += (slipX * close * 2.5) / 3.5;
-      ball.sz += (slipZ * close * 2.5) / 3.5;
+    if (slip > 0.015) {
+      const close = Math.min(slip, SLIDE_ACCEL * 3.5 * dt);
+      const ux = slipX / slip;
+      const uz = slipZ / slip;
+      const dv = close / 3.5;
+      ball.vx -= ux * dv;
+      ball.vz -= uz * dv;
+      ball.sx += ux * dv * 2.5;
+      ball.sz += uz * dv * 2.5;
+    } else {
+      ball.sx = ball.vx;
+      ball.sz = ball.vz;
+      const rolling = Math.hypot(ball.vx, ball.vz);
+      if (rolling > 0.0001) {
+        const keep = Math.max(0, rolling - ROLL_ACCEL * dt) / rolling;
+        ball.vx *= keep;
+        ball.vz *= keep;
+        ball.sx = ball.vx;
+        ball.sz = ball.vz;
+      }
     }
     const speed = Math.hypot(ball.vx, ball.vz);
-    if (speed > 0.08 && Math.abs(ball.side) > 0.03 && slip > 0.04) {
-      const grip = Math.min(1, slip / speed);
+    if (speed > 0.08 && Math.abs(ball.side) > 0.03 && slip > 0.05) {
+      const grip = Math.min(1, slip / Math.max(speed, 0.2));
       const bend = ball.side * grip * SWERVE * dt;
       const vx = ball.vx;
       const vz = ball.vz;
       ball.vx += (vz / speed) * bend;
       ball.vz -= (vx / speed) * bend;
     }
-    ball.vx *= drag;
-    ball.vz *= drag;
-    ball.sx *= drag;
-    ball.sz *= drag;
-    ball.side *= Math.max(0, 1 - 0.45 * dt);
+    ball.side *= Math.max(0, 1 - 0.22 * dt);
     const speedSq = ball.vx * ball.vx + ball.vz * ball.vz;
     const spinSq = ball.sx * ball.sx + ball.sz * ball.sz + ball.side * ball.side;
     if (speedSq < MIN_VEL * MIN_VEL && spinSq < MIN_VEL * MIN_VEL) {

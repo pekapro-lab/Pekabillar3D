@@ -17,8 +17,14 @@ import {
   playerLabel,
   spotClear,
 } from "./table";
-import type { Ball, Difficulty, Group, Mode, ScoreState } from "./types";
-import { createWorld, resetRack, writeBestRun } from "./world";
+import type { Ball, ClothId, Difficulty, Group, Mode, ScoreState } from "./types";
+import { createWorld, resetRack, writeBestRun, writeCloth } from "./world";
+
+const CLOTH_CHOICES: { id: ClothId; label: string; swatch: string }[] = [
+  { id: "green", label: "Verde", swatch: "#1f8a4e" },
+  { id: "red", label: "Rojo", swatch: "#b03842" },
+  { id: "blue", label: "Azul", swatch: "#2858ae" },
+];
 
 const DIFFICULTIES: { id: Difficulty; label: string }[] = [
   { id: "easy", label: "Fácil" },
@@ -260,6 +266,28 @@ export function PekabillarApp() {
             <span className="mt-1 block font-display text-xl text-brass-2">{world.bestRun}</span>
           </p>
         </header>
+
+        <div className="flex items-center gap-2" role="group" aria-label="Color del tapete">
+          <p className="w-14 shrink-0 text-xs text-muted">Tapete</p>
+          {CLOTH_CHOICES.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={world.cloth === item.id}
+              className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border text-sm ${
+                world.cloth === item.id ? "border-brass text-fg" : "border-line glass-card text-muted"
+              }`}
+              onClick={() => {
+                world.cloth = item.id;
+                writeCloth(item.id);
+                bump();
+              }}
+            >
+              <span className="size-3 rounded-full" style={{ background: item.swatch }} />
+              {item.label}
+            </button>
+          ))}
+        </div>
 
         {world.phase === "menu" ? (
           <div className="flex flex-col gap-3">

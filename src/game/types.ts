@@ -3,6 +3,7 @@ export type Group = "solid" | "stripe";
 export type Difficulty = "easy" | "medium" | "hard";
 export type Mode = "ai" | "hotseat";
 export type PlayerId = 1 | 2;
+export type ClothId = "green" | "red" | "blue";
 export type ShotSound = "pot" | "foul" | "miss" | "win";
 
 export interface Spot {
@@ -89,6 +90,7 @@ export interface World {
   english: number;
   /** -1 retroceso, 1 avance. */
   follow: number;
+  cloth: ClothId;
   moving: boolean;
   phase: "menu" | "play";
   mode: Mode;

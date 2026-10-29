@@ -1,9 +1,29 @@
 import { freshTracker } from "./physics";
 import { initialScore } from "./rules";
 import { makeTable, openingPlacement, rackBalls } from "./table";
-import type { Mode, World } from "./types";
+import type { ClothId, Mode, World } from "./types";
 
 const BEST_KEY = "pekabillar3d-best-run";
+const CLOTH_KEY = "pekabillar3d-cloth";
+
+export function readCloth(): ClothId {
+  if (typeof window === "undefined") return "green";
+  try {
+    const value = localStorage.getItem(CLOTH_KEY);
+    if (value === "red" || value === "blue" || value === "green") return value;
+  } catch {
+    /* ignore quota */
+  }
+  return "green";
+}
+
+export function writeCloth(value: ClothId): void {
+  try {
+    localStorage.setItem(CLOTH_KEY, value);
+  } catch {
+    /* ignore quota */
+  }
+}
 
 export function readBestRun(): number {
   if (typeof window === "undefined") return 0;
@@ -33,6 +53,7 @@ export function createWorld(): World {
     aimPower: 86,
     english: 0,
     follow: 0,
+    cloth: readCloth(),
     moving: false,
     phase: "menu",
     mode: "ai",

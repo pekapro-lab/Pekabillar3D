@@ -29,7 +29,7 @@ export interface ClothPointer {
   phase: "down" | "move" | "up";
 }
 
-function feltMaps(anisotropy: number): { map: CanvasTexture; bump: CanvasTexture } {
+function feltMaps(anisotropy: number, rgb: [number, number, number]): { map: CanvasTexture; bump: CanvasTexture } {
   const size = 512;
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -49,9 +49,9 @@ function feltMaps(anisotropy: number): { map: CanvasTexture; bump: CanvasTexture
         const grain = (Math.random() - 0.5) * 0.045;
         const v = 0.96 + nap + grain;
         const i = (y * size + x) * 4;
-        image.data[i] = 11 * v;
-        image.data[i + 1] = 92 * v;
-        image.data[i + 2] = 48 * v;
+        image.data[i] = rgb[0] * v;
+        image.data[i + 1] = rgb[1] * v;
+        image.data[i + 2] = rgb[2] * v;
         image.data[i + 3] = 255;
       }
     }
@@ -316,9 +316,16 @@ function HallLight() {
   return null;
 }
 
+const CLOTHS = {
+  green: { rgb: [11, 92, 48] as [number, number, number], tint: "#d7ffe4", rail: "#187243", nose: "#1f8a4e" },
+  red: { rgb: [128, 28, 34] as [number, number, number], tint: "#ffe0dc", rail: "#8c2832", nose: "#b03842" },
+  blue: { rgb: [20, 48, 122] as [number, number, number], tint: "#dce6ff", rail: "#1b438c", nose: "#2858ae" },
+};
+
 function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
   const anisotropy = useThree((state) => state.gl.capabilities.getMaxAnisotropy());
-  const cloth = useMemo(() => feltMaps(anisotropy), [anisotropy]);
+  const felt = CLOTHS[worldRef.current.cloth];
+  const cloth = useMemo(() => feltMaps(anisotropy, felt.rgb), [anisotropy, felt]);
   const wood = useMemo(() => woodMap(anisotropy), [anisotropy]);
   const woodDark = useMemo(() => woodMap(anisotropy, true), [anisotropy]);
   useEffect(
@@ -369,7 +376,7 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
 
       <mesh position={[0, -0.012, 0]} receiveShadow>
         <boxGeometry args={[width, 0.024, length]} />
-        <meshStandardMaterial map={cloth.map} bumpMap={cloth.bump} bumpScale={0.0035} color="#d7ffe4" roughness={0.74} metalness={0} />
+        <meshStandardMaterial map={cloth.map} bumpMap={cloth.bump} bumpScale={0.0035} color={felt.tint} roughness={0.74} metalness={0} />
       </mesh>
 
       <mesh position={[0, 0.002, headZ]}>
@@ -403,11 +410,11 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
         <group key={i}>
           <mesh position={[x, railH / 2, z]} castShadow receiveShadow>
             <boxGeometry args={[thick, railH, sideLen]} />
-            <meshStandardMaterial color="#187243" roughness={0.58} />
+            <meshStandardMaterial color={felt.rail} roughness={0.58} />
           </mesh>
           <mesh position={[Math.sign(x) * -0.02 + x, 0.026, z]} rotation={[Math.PI / 2, 0, 0]} castShadow>
             <cylinderGeometry args={[0.02, 0.02, sideLen * 0.98, 16]} />
-            <meshStandardMaterial color="#1f8a4e" roughness={0.48} />
+            <meshStandardMaterial color={felt.nose} roughness={0.48} />
           </mesh>
           <mesh position={[x + Math.sign(x) * 0.02, railH * 0.78, z]} castShadow>
             <boxGeometry args={[thick * 0.7, railH * 0.36, sideLen]} />
@@ -419,11 +426,11 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
         <group key={z}>
           <mesh position={[0, railH / 2, z]} castShadow receiveShadow>
             <boxGeometry args={[endLen, railH, thick]} />
-            <meshStandardMaterial color="#187243" roughness={0.58} />
+            <meshStandardMaterial color={felt.rail} roughness={0.58} />
           </mesh>
           <mesh position={[0, 0.026, z + Math.sign(z) * -0.02]} rotation={[0, 0, Math.PI / 2]} castShadow>
             <cylinderGeometry args={[0.02, 0.02, endLen * 0.98, 16]} />
-            <meshStandardMaterial color="#1f8a4e" roughness={0.48} />
+            <meshStandardMaterial color={felt.nose} roughness={0.48} />
           </mesh>
           <mesh position={[0, railH * 0.78, z + Math.sign(z) * 0.02]} castShadow>
             <boxGeometry args={[endLen, railH * 0.36, thick * 0.7]} />
