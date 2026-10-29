@@ -1,14 +1,14 @@
 import type { Ball, Table, Tracker } from "./types";
 
 export const FRICTION = 0.78;
-export const RESTITUTION = 0.93;
+export const RESTITUTION = 0.96;
 export const CUSHION_RESTITUTION = 0.78;
-export const BALL_FRICTION = 0.09;
+export const BALL_FRICTION = 0.045;
 export const CUSHION_GRAB = 0.08;
 export const SLIDE_ACCEL = 1.7;
-export const ROLL_ACCEL = 0.4;
+export const ROLL_ACCEL = 0.27;
 export const SWERVE = 1.05;
-export const MIN_VEL = 0.04;
+export const MIN_VEL = 0.02;
 
 function cushionRestitution(speed: number, rolling: boolean): number {
   const v = Math.abs(speed);
@@ -165,9 +165,9 @@ function collide(a: Ball, b: Ball): number {
   const nx = dx / dist;
   const nz = dz / dist;
   const overlap = minDist - dist;
-  const slop = 0.0006;
+  const slop = 0.0004;
   if (overlap > slop) {
-    const corr = (overlap - slop) * 0.75;
+    const corr = overlap - slop;
     a.x -= nx * corr * 0.5;
     a.z -= nz * corr * 0.5;
     b.x += nx * corr * 0.5;
@@ -199,6 +199,9 @@ function collide(a: Ball, b: Ball): number {
   a.vz -= impulse * nz;
   b.vx += impulse * nx;
   b.vz += impulse * nz;
+  const roll = impulse * 0.42;
+  b.sx += nx * roll;
+  b.sz += nz * roll;
 
   const tx = rvx - relN * nx;
   const tz = rvz - relN * nz;
