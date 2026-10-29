@@ -211,6 +211,7 @@ function badgeTexture(ball: Ball): CanvasTexture {
 const raycaster = new Raycaster();
 const pointerNdc = new Vector2();
 const rollAxis = new Vector3();
+const upAxis = new Vector3(0, 1, 0);
 
 function ClothPointer({
   inputRef,
@@ -482,6 +483,7 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
       rollAxis.set(-dz, 0, dx).normalize();
       mesh.rotateOnWorldAxis(rollAxis, dist / live.radius);
     }
+    if (Math.abs(live.side) > 0.02) mesh.rotateOnWorldAxis(upAxis, (-live.side / live.radius) * 0.016);
     if (shade.current) {
       shade.current.visible = true;
       shade.current.position.set(live.x, 0.004, live.z);
@@ -530,6 +532,7 @@ function CueAndGuides({ worldRef }: { worldRef: RefObject<World> }) {
   const tip = useRef<Mesh>(null);
   const aim = useRef<Mesh>(null);
   const ghost = useRef<Mesh>(null);
+  const hitSpot = useRef<Mesh>(null);
   const length = 1.22;
 
   useFrame(() => {
@@ -541,12 +544,20 @@ function CueAndGuides({ worldRef }: { worldRef: RefObject<World> }) {
     stick.visible = showStick;
     if (showStick) {
       const pull = ball.radius + 0.045 + (world.aimPower / 100) * 0.42;
-      stick.position.set(ball.x, ball.radius, ball.z);
-      stick.rotation.set(0.08, world.aimAngle, 0);
+      const side = world.english * ball.radius * 0.62;
+      const rise = world.follow * ball.radius * 0.48;
+      const px = Math.cos(world.aimAngle);
+      const pz = -Math.sin(world.aimAngle);
+      stick.position.set(ball.x + px * side, ball.radius + rise, ball.z + pz * side);
+      stick.rotation.set(0.08 - world.follow * 0.06, world.aimAngle, world.english * 0.08);
       if (shaft.current) shaft.current.position.z = -(pull + length / 2);
       if (ferrule.current) ferrule.current.position.z = -pull + 0.02;
       if (tip.current) tip.current.position.z = -pull + 0.004;
-    }
+      if (hitSpot.current) {
+        hitSpot.current.visible = true;
+        hitSpot.current.position.set(ball.x + px * side, ball.radius + ball.radius * 0.15 + rise, ball.z + pz * side);
+      }
+    } else if (hitSpot.current) hitSpot.current.visible = false;
 
     const human = world.mode === "hotseat" || world.score.player === 1;
     const showAim =
@@ -595,6 +606,10 @@ function CueAndGuides({ worldRef }: { worldRef: RefObject<World> }) {
           <meshStandardMaterial color="#2f6d4a" roughness={0.62} />
         </mesh>
       </group>
+      <mesh ref={hitSpot} visible={false}>
+        <sphereGeometry args={[0.008, 10, 8]} />
+        <meshBasicMaterial color="#f0d7a0" />
+      </mesh>
       <mesh ref={aim} position={[0, 0.008, 0]}>
         <boxGeometry args={[0.014, 0.004, 1]} />
         <meshBasicMaterial color="#f0d7a0" transparent opacity={0.9} />

@@ -18,6 +18,11 @@ export interface Ball {
   z: number;
   vx: number;
   vz: number;
+  /** Velocidad de rodadura. Si iguala a vx/vz, la bola rueda sin deslizar. */
+  sx: number;
+  sz: number;
+  /** Efecto lateral: positivo es derecha (giro horario visto desde arriba). */
+  side: number;
   radius: number;
   color: string;
   stripe: boolean;
@@ -80,6 +85,10 @@ export interface World {
   balls: Ball[];
   aimAngle: number;
   aimPower: number;
+  /** -1 izquierda, 1 derecha. */
+  english: number;
+  /** -1 retroceso, 1 avance. */
+  follow: number;
   moving: boolean;
   phase: "menu" | "play";
   mode: Mode;

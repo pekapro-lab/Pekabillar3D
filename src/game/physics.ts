@@ -1,11 +1,11 @@
-import { BALL_R } from "./table";
 import type { Ball, Table, Tracker } from "./types";
 
 export const FRICTION = 0.78;
 export const RESTITUTION = 0.94;
 export const CUSHION_RESTITUTION = 0.78;
 export const BALL_FRICTION = 0.16;
-export const CUSHION_GRAB = 0.22;
+export const CUSHION_GRAB = 0.08;
+export const SPIN_GRIP = 2.5;
 export const MIN_VEL = 0.04;
 
 export function speedFromPower(power: number): number {
@@ -13,10 +13,20 @@ export function speedFromPower(power: number): number {
   return 0.48 + (p / 100) * 2.85;
 }
 
-export function strike(ball: Ball, angle: number, power: number): void {
+export function strike(ball: Ball, angle: number, power: number, english = 0, follow = 0): void {
   const speed = speedFromPower(power);
-  ball.vx = Math.sin(angle) * speed;
-  ball.vz = Math.cos(angle) * speed;
+  const e = Math.max(-1, Math.min(1, english));
+  const f = Math.max(-1, Math.min(1, follow));
+  const loss = 1 - 0.05 * (e * e + f * f);
+  const v = speed * loss;
+  const dx = Math.sin(angle);
+  const dz = Math.cos(angle);
+  ball.vx = dx * v;
+  ball.vz = dz * v;
+  const geared = v * f * 1.45;
+  ball.sx = dx * geared;
+  ball.sz = dz * geared;
+  ball.side = v * e * 0.9;
   ball.isPocketed = false;
 }
 
@@ -67,11 +77,21 @@ function drop(ball: Ball, pocket: { x: number; z: number }, tracker: Tracker | n
   ball.isPocketed = true;
   ball.vx = 0;
   ball.vz = 0;
+  ball.sx = 0;
+  ball.sz = 0;
+  ball.side = 0;
   ball.x = pocket.x;
   ball.z = pocket.z;
   if (!tracker) return;
   if (ball.isCue) tracker.cuePotted = true;
   else if (!tracker.pocketed.some((p) => p.id === ball.id)) tracker.pocketed.push(ball);
+}
+
+function bounceRail(ball: Ball, tangent: "z" | "x", sign: number): void {
+  const kick = 0.62 * ball.side * sign;
+  if (tangent === "z") ball.vz += kick;
+  else ball.vx += kick;
+  ball.side *= 0.42;
 }
 
 function resolveCushion(ball: Ball, table: Table): boolean {
@@ -85,6 +105,7 @@ function resolveCushion(ball: Ball, table: Table): boolean {
     if (ball.vx < 0) {
       ball.vx = -ball.vx * CUSHION_RESTITUTION;
       ball.vz *= 1 - CUSHION_GRAB;
+      bounceRail(ball, "z", -1);
       hit = true;
     }
   } else if (ball.x > maxX) {
@@ -92,6 +113,7 @@ function resolveCushion(ball: Ball, table: Table): boolean {
     if (ball.vx > 0) {
       ball.vx = -ball.vx * CUSHION_RESTITUTION;
       ball.vz *= 1 - CUSHION_GRAB;
+      bounceRail(ball, "z", 1);
       hit = true;
     }
   }
@@ -100,6 +122,7 @@ function resolveCushion(ball: Ball, table: Table): boolean {
     if (ball.vz < 0) {
       ball.vz = -ball.vz * CUSHION_RESTITUTION;
       ball.vx *= 1 - CUSHION_GRAB;
+      bounceRail(ball, "x", -1);
       hit = true;
     }
   } else if (ball.z > maxZ) {
@@ -107,6 +130,7 @@ function resolveCushion(ball: Ball, table: Table): boolean {
     if (ball.vz > 0) {
       ball.vz = -ball.vz * CUSHION_RESTITUTION;
       ball.vx *= 1 - CUSHION_GRAB;
+      bounceRail(ball, "x", 1);
       hit = true;
     }
   }
@@ -133,8 +157,8 @@ function collide(a: Ball, b: Ball): number {
     b.z += nz * corr * 0.5;
   }
 
-  const rvx = b.vx - a.vx;
-  const rvz = b.vz - a.vz;
+  const rvx = b.vx - b.side * nz - (a.vx + a.side * nz);
+  const rvz = b.vz + b.side * nx - (a.vz - a.side * nx);
   const relN = rvx * nx + rvz * nz;
   const bothSlow = a.vx * a.vx + a.vz * a.vz + b.vx * b.vx + b.vz * b.vz < MIN_VEL * MIN_VEL * 4;
   if (bothSlow) {
@@ -142,6 +166,12 @@ function collide(a: Ball, b: Ball): number {
     a.vz = 0;
     b.vx = 0;
     b.vz = 0;
+    a.sx = 0;
+    a.sz = 0;
+    b.sx = 0;
+    b.sz = 0;
+    a.side = 0;
+    b.side = 0;
     return 0;
   }
   if (relN >= 0) return 0;
@@ -164,6 +194,8 @@ function collide(a: Ball, b: Ball): number {
     a.vz += jt * tzu;
     b.vx -= jt * txu;
     b.vz -= jt * tzu;
+    a.side *= 0.62;
+    b.side *= 0.62;
   }
   return impact;
 }
@@ -176,12 +208,29 @@ export function stepSimulation(balls: Ball[], table: Table, dt: number, tracker:
       continue;
     }
     const drag = Math.max(0, 1 - FRICTION * dt);
+    const slipX = ball.vx - ball.sx;
+    const slipZ = ball.vz - ball.sz;
+    const slip = Math.hypot(slipX, slipZ);
+    if (slip > 0.0008) {
+      const close = Math.min(1, SPIN_GRIP * dt);
+      ball.vx -= (slipX * close) / 3.5;
+      ball.vz -= (slipZ * close) / 3.5;
+      ball.sx += (slipX * close * 2.5) / 3.5;
+      ball.sz += (slipZ * close * 2.5) / 3.5;
+    }
     ball.vx *= drag;
     ball.vz *= drag;
+    ball.sx *= drag;
+    ball.sz *= drag;
+    ball.side *= Math.max(0, 1 - 0.45 * dt);
     const speedSq = ball.vx * ball.vx + ball.vz * ball.vz;
-    if (speedSq < MIN_VEL * MIN_VEL) {
+    const spinSq = ball.sx * ball.sx + ball.sz * ball.sz + ball.side * ball.side;
+    if (speedSq < MIN_VEL * MIN_VEL && spinSq < MIN_VEL * MIN_VEL) {
       ball.vx = 0;
       ball.vz = 0;
+      ball.sx = 0;
+      ball.sz = 0;
+      ball.side = 0;
     } else {
       ball.x += ball.vx * dt;
       ball.z += ball.vz * dt;

@@ -31,6 +31,8 @@ export function createWorld(): World {
     balls: rackBalls(table),
     aimAngle: open.angle,
     aimPower: 86,
+    english: 0,
+    follow: 0,
     moving: false,
     phase: "menu",
     mode: "ai",
@@ -51,6 +53,8 @@ export function resetRack(world: World, mode: Mode): void {
   world.balls = rackBalls(world.table);
   world.aimAngle = open.angle;
   world.aimPower = 86;
+  world.english = 0;
+  world.follow = 0;
   world.moving = false;
   world.phase = "play";
   world.mode = mode;

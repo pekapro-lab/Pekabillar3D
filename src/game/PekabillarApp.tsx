@@ -81,7 +81,7 @@ export function PekabillarApp() {
     if (cue.isPocketed) return;
     unlockAudio();
     world.breakShot = world.opening;
-    strike(cue, world.aimAngle, world.aimPower);
+    strike(cue, world.aimAngle, world.aimPower, world.english, world.follow);
     world.tracker = freshTracker();
     world.moving = true;
     world.opening = false;
@@ -210,7 +210,7 @@ export function PekabillarApp() {
         const liveCue = cueBall(now.balls);
         if (liveCue.isPocketed) return;
         now.breakShot = now.opening;
-        strike(liveCue, now.aimAngle, now.aimPower);
+        strike(liveCue, now.aimAngle, now.aimPower, 0, 0);
         now.tracker = freshTracker();
         now.moving = true;
         now.opening = false;
@@ -296,8 +296,9 @@ export function PekabillarApp() {
               Dos en la mesa
             </button>
             <p className="text-xs leading-relaxed text-muted">
-              Arrastra sobre el paño para apuntar. La potencia va en la barra. Flechas, espacio o clic de la rueda para
-              golpear. Gira la rueda para acercarte hasta ver el tapete. Botón derecho para girar la cámara.
+              Arrastra sobre el paño para apuntar. La potencia va en la barra. Efecto es izquierda o derecha; altura,
+              avance o retroceso. Flechas, espacio o clic de la rueda para golpear. Gira la rueda para acercarte hasta
+              ver el tapete. Botón derecho para girar la cámara.
             </p>
           </div>
         ) : (
@@ -344,6 +345,38 @@ export function PekabillarApp() {
                 disabled={!human || world.moving || score.over}
                 onChange={(event) => {
                   world.aimPower = Number(event.target.value);
+                  setAimTick((n) => n + 1);
+                }}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-muted">
+              Efecto{" "}
+              {world.english > 0.08 ? "derecha" : world.english < -0.08 ? "izquierda" : "centro"}
+              <input
+                type="range"
+                min={-100}
+                max={100}
+                value={Math.round(world.english * 100)}
+                aria-label="Efecto lateral"
+                disabled={!human || world.moving || score.over}
+                onChange={(event) => {
+                  world.english = Number(event.target.value) / 100;
+                  setAimTick((n) => n + 1);
+                }}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-muted">
+              Altura{" "}
+              {world.follow > 0.08 ? "avance" : world.follow < -0.08 ? "retroceso" : "centro"}
+              <input
+                type="range"
+                min={-100}
+                max={100}
+                value={Math.round(world.follow * 100)}
+                aria-label="Avance o retroceso"
+                disabled={!human || world.moving || score.over}
+                onChange={(event) => {
+                  world.follow = Number(event.target.value) / 100;
                   setAimTick((n) => n + 1);
                 }}
               />

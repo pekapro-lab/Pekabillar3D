@@ -63,6 +63,9 @@ function makeBall(number: number, x: number, z: number, spot: Spot | null): Ball
     z,
     vx: 0,
     vz: 0,
+    sx: 0,
+    sz: 0,
+    side: 0,
     radius: BALL_R,
     color: style.color,
     stripe: style.stripe,
@@ -175,6 +178,9 @@ export function placeCue(balls: Ball[], x: number, z: number): void {
   cue.z = z;
   cue.vx = 0;
   cue.vz = 0;
+  cue.sx = 0;
+  cue.sz = 0;
+  cue.side = 0;
 }
 
 export function spotClear(balls: Ball[], x: number, z: number, ignoreId = 0): boolean {
