@@ -3,7 +3,9 @@ import type { Ball, Table, Tracker } from "./types";
 
 export const FRICTION = 0.78;
 export const RESTITUTION = 0.94;
-export const CUSHION_RESTITUTION = 0.74;
+export const CUSHION_RESTITUTION = 0.78;
+export const BALL_FRICTION = 0.16;
+export const CUSHION_GRAB = 0.22;
 export const MIN_VEL = 0.04;
 
 export function speedFromPower(power: number): number {
@@ -80,21 +82,33 @@ function resolveCushion(ball: Ball, table: Table): boolean {
   const maxZ = table.halfL - ball.radius;
   if (ball.x < minX) {
     ball.x = minX;
-    ball.vx = Math.abs(ball.vx) * CUSHION_RESTITUTION;
-    hit = true;
+    if (ball.vx < 0) {
+      ball.vx = -ball.vx * CUSHION_RESTITUTION;
+      ball.vz *= 1 - CUSHION_GRAB;
+      hit = true;
+    }
   } else if (ball.x > maxX) {
     ball.x = maxX;
-    ball.vx = -Math.abs(ball.vx) * CUSHION_RESTITUTION;
-    hit = true;
+    if (ball.vx > 0) {
+      ball.vx = -ball.vx * CUSHION_RESTITUTION;
+      ball.vz *= 1 - CUSHION_GRAB;
+      hit = true;
+    }
   }
   if (ball.z < minZ) {
     ball.z = minZ;
-    ball.vz = Math.abs(ball.vz) * CUSHION_RESTITUTION;
-    hit = true;
+    if (ball.vz < 0) {
+      ball.vz = -ball.vz * CUSHION_RESTITUTION;
+      ball.vx *= 1 - CUSHION_GRAB;
+      hit = true;
+    }
   } else if (ball.z > maxZ) {
     ball.z = maxZ;
-    ball.vz = -Math.abs(ball.vz) * CUSHION_RESTITUTION;
-    hit = true;
+    if (ball.vz > 0) {
+      ball.vz = -ball.vz * CUSHION_RESTITUTION;
+      ball.vx *= 1 - CUSHION_GRAB;
+      hit = true;
+    }
   }
   return hit;
 }
@@ -110,12 +124,18 @@ function collide(a: Ball, b: Ball): number {
   const nx = dx / dist;
   const nz = dz / dist;
   const overlap = minDist - dist;
-  a.x -= nx * overlap * 0.5;
-  a.z -= nz * overlap * 0.5;
-  b.x += nx * overlap * 0.5;
-  b.z += nz * overlap * 0.5;
+  const slop = 0.0006;
+  if (overlap > slop) {
+    const corr = (overlap - slop) * 0.75;
+    a.x -= nx * corr * 0.5;
+    a.z -= nz * corr * 0.5;
+    b.x += nx * corr * 0.5;
+    b.z += nz * corr * 0.5;
+  }
 
-  const relN = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz;
+  const rvx = b.vx - a.vx;
+  const rvz = b.vz - a.vz;
+  const relN = rvx * nx + rvz * nz;
   const bothSlow = a.vx * a.vx + a.vz * a.vz + b.vx * b.vx + b.vz * b.vz < MIN_VEL * MIN_VEL * 4;
   if (bothSlow) {
     a.vx = 0;
@@ -132,6 +152,19 @@ function collide(a: Ball, b: Ball): number {
   a.vz -= impulse * nz;
   b.vx += impulse * nx;
   b.vz += impulse * nz;
+
+  const tx = rvx - relN * nx;
+  const tz = rvz - relN * nz;
+  const tanSpeed = Math.hypot(tx, tz);
+  if (tanSpeed > 0.0001) {
+    const jt = Math.min(tanSpeed / 2, BALL_FRICTION * impulse);
+    const txu = tx / tanSpeed;
+    const tzu = tz / tanSpeed;
+    a.vx += jt * txu;
+    a.vz += jt * tzu;
+    b.vx -= jt * txu;
+    b.vz -= jt * tzu;
+  }
   return impact;
 }
 
@@ -161,31 +194,33 @@ export function stepSimulation(balls: Ball[], table: Table, dt: number, tracker:
     if (pocket) drop(ball, pocket, tracker);
   }
 
-  for (const ball of balls) {
-    if (ball.isPocketed) continue;
-    if (nearPocket(ball, table)) {
-      const pocket = pocketHit(ball, table);
-      if (pocket) {
-        drop(ball, pocket, tracker);
+  for (let pass = 0; pass < 4; pass++) {
+    for (const ball of balls) {
+      if (ball.isPocketed) continue;
+      if (nearPocket(ball, table)) {
+        const pocket = pocketHit(ball, table);
+        if (pocket) {
+          drop(ball, pocket, tracker);
+          continue;
+        }
+        const jawHit = resolveCushion(ball, table);
+        if (tracker?.cueHasHit && (jawHit || escapedPocket(ball, table))) tracker.railAfterContact = true;
         continue;
       }
-      const jawHit = resolveCushion(ball, table);
-      if (tracker?.cueHasHit && (jawHit || escapedPocket(ball, table))) tracker.railAfterContact = true;
-      continue;
+      if (resolveCushion(ball, table) && tracker?.cueHasHit) tracker.railAfterContact = true;
     }
-    if (resolveCushion(ball, table) && tracker?.cueHasHit) tracker.railAfterContact = true;
-  }
 
-  for (let i = 0; i < balls.length; i++) {
-    for (let j = i + 1; j < balls.length; j++) {
-      const a = balls[i];
-      const b = balls[j];
-      if (a.isPocketed || b.isPocketed) continue;
-      const impact = collide(a, b);
-      if (impact > 0.18) impacts?.push(impact);
-      if (impact > 0 && tracker && !tracker.first && (a.isCue || b.isCue)) {
-        tracker.first = a.isCue ? b : a;
-        tracker.cueHasHit = true;
+    for (let i = 0; i < balls.length; i++) {
+      for (let j = i + 1; j < balls.length; j++) {
+        const a = balls[i];
+        const b = balls[j];
+        if (a.isPocketed || b.isPocketed) continue;
+        const impact = collide(a, b);
+        if (pass === 0 && impact > 0.18) impacts?.push(impact);
+        if (impact > 0 && tracker && !tracker.first && (a.isCue || b.isCue)) {
+          tracker.first = a.isCue ? b : a;
+          tracker.cueHasHit = true;
+        }
       }
     }
   }
