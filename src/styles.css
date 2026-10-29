@@ -61,13 +61,13 @@
   }
 
   .glass-panel {
-    background: color-mix(in srgb, var(--color-surface) 22%, transparent);
-    backdrop-filter: blur(8px) saturate(1.15);
-    -webkit-backdrop-filter: blur(8px) saturate(1.15);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+    background: color-mix(in srgb, var(--color-surface) 10%, transparent);
+    backdrop-filter: blur(4px) saturate(1.1);
+    -webkit-backdrop-filter: blur(4px) saturate(1.1);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   }
 
   .glass-panel :is(.glass-card) {
-    background: color-mix(in srgb, var(--color-bg) 24%, transparent);
+    background: color-mix(in srgb, var(--color-bg) 12%, transparent);
   }
 }

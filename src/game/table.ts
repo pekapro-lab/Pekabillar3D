@@ -1,6 +1,6 @@
 import type { Ball, BallType, Group, PlayerId, ScoreState, Spot, Table } from "./types";
 
-export const BALL_R = 0.036;
+export const BALL_R = 0.05;
 
 const SOLIDS = ["#e6b325", "#1d4ed8", "#d02323", "#6d28d9", "#ea6a12", "#178a3e", "#7a2433"];
 
@@ -34,7 +34,7 @@ export function makeTable(): Table {
   const length = 3.56;
   const halfW = width / 2;
   const halfL = length / 2;
-  const pr = 0.1;
+  const pr = 0.118;
   return {
     width,
     length,
