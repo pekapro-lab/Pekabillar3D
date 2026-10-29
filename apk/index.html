@@ -7,6 +7,33 @@
     <title>Peka Billar 3D</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Outfit:wght@400;500;600&display=swap" />
+    <script>
+      // Muestra errores de arranque en pantalla en vez de dejarla negra (solo APK).
+      (function () {
+        function show(msg) {
+          var el = document.getElementById("boot-error");
+          if (!el) {
+            el = document.createElement("pre");
+            el.id = "boot-error";
+            el.style.cssText = "position:fixed;inset:0;z-index:99999;margin:0;padding:16px;overflow:auto;background:#1a0d0d;color:#ffd7d7;font:12px/1.4 monospace;white-space:pre-wrap";
+            (document.body || document.documentElement).appendChild(el);
+            el.textContent = "Peka Billar 3D: error al arrancar\n" + navigator.userAgent + "\n\n";
+          }
+          el.textContent += msg + "\n\n";
+        }
+        window.__bootError = show;
+        window.addEventListener("error", function (e) {
+          show((e.message || "Error") + (e.filename ? "\n" + e.filename + ":" + e.lineno : "") + (e.error && e.error.stack ? "\n" + e.error.stack : ""));
+        });
+        window.addEventListener("unhandledrejection", function (e) {
+          var r = e.reason; show("Promesa rechazada: " + (r && (r.stack || r.message) || r));
+        });
+        setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && !root.firstChild) show("La app no ha montado tras 8 s (¿el JS no carga en este WebView?).");
+        }, 8000);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

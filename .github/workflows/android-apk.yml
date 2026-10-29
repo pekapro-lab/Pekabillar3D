@@ -36,6 +36,43 @@ jobs:
           npx vite build -c vite.apk.config.ts
           npx cap sync android
 
+      - name: Smoke test www (móvil horizontal, sin errores)
+        run: |
+          npx playwright install --with-deps chromium
+          cat > /tmp/smoke.mjs <<'JS'
+          import { chromium } from "playwright";
+          import { createServer } from "node:http";
+          import { readFile } from "node:fs/promises";
+          import { extname, join } from "node:path";
+          const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".json": "application/json", ".webmanifest": "application/json" };
+          const srv = createServer(async (req, res) => {
+            let p = decodeURIComponent(req.url.split("?")[0]); if (p.endsWith("/")) p += "index.html";
+            try { const b = await readFile(join("www", p)); res.writeHead(200, { "content-type": types[extname(p)] || "application/octet-stream" }); res.end(b); }
+            catch { res.writeHead(404); res.end(); }
+          }).listen(8099);
+          const b = await chromium.launch({ args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+          const p = await b.newPage({ viewport: { width: 780, height: 360 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2.75 });
+          const errs = [];
+          p.on("pageerror", (e) => errs.push(e.message));
+          p.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
+          await p.goto("http://127.0.0.1:8099/", { waitUntil: "load" });
+          await p.waitForTimeout(6000);
+          await p.screenshot({ path: "smoke-landscape.png" });
+          const txt = await p.innerText("body"); const canvases = await p.locator("canvas").count();
+          console.log("canvas:", canvases, "text:", txt.slice(0, 120).replace(/\n/g, " | "));
+          console.log("errors:", errs);
+          await b.close(); srv.close();
+          if (!canvases || !/Jugar/.test(txt) || /error al arrancar/.test(txt)) { console.log("::error::La APK no monta el juego"); process.exit(1); }
+          JS
+          cp /tmp/smoke.mjs ./smoke.mjs && node smoke.mjs; rm -f smoke.mjs
+
+      - name: Upload smoke screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshot
+          path: smoke-landscape.png
+
       - name: Decode release keystore
         env:
           KS_B64: ${{ secrets.PEKAR_KEYSTORE_BASE64 }}
