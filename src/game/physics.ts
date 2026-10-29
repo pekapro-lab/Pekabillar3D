@@ -10,8 +10,69 @@ export const ROLL_ACCEL = 0.4;
 export const SWERVE = 1.05;
 export const MIN_VEL = 0.04;
 
-function cushionRestitution(speed: number): number {
-  return Math.min(0.86, Math.max(0.64, 0.84 - Math.abs(speed) * 0.04));
+function cushionRestitution(speed: number, rolling: boolean): number {
+  const v = Math.abs(speed);
+  if (rolling) return Math.min(0.91, Math.max(0.84, 0.9 - v * 0.012));
+  return Math.min(0.8, Math.max(0.66, 0.78 - v * 0.028));
+}
+
+function bounceCushion(ball: Ball, normal: "x" | "z", englishSign: number): void {
+  const vKey = normal === "x" ? "vx" : "vz";
+  const sKey = normal === "x" ? "sx" : "sz";
+  const tV = normal === "x" ? "vz" : "vx";
+  const tS = normal === "x" ? "sz" : "sx";
+  const vn = ball[vKey];
+  const sn = ball[sKey];
+  const rolling = Math.abs(vn - sn) < Math.max(0.06, Math.abs(vn) * 0.22);
+  const out = -cushionRestitution(vn, rolling) * vn;
+  ball[vKey] = out;
+  ball[sKey] = out;
+
+  const slip = ball[tV] - ball[tS];
+  const limit = Math.abs(vn) * (rolling ? 0.12 : 0.28);
+  const grab = Math.max(-limit, Math.min(limit, slip * (rolling ? 0.2 : 0.45)));
+  ball[tV] -= grab;
+  ball[tS] = ball[tV];
+
+  const kick = 0.5 * ball.side * englishSign;
+  ball[tV] += kick;
+  ball[tS] += kick;
+  ball.side *= 0.5;
+}
+
+function resolveCushion(ball: Ball, table: Table): boolean {
+  let hit = false;
+  const minX = -table.halfW + ball.radius;
+  const maxX = table.halfW - ball.radius;
+  const minZ = -table.halfL + ball.radius;
+  const maxZ = table.halfL - ball.radius;
+  if (ball.x < minX) {
+    ball.x = minX;
+    if (ball.vx < 0) {
+      bounceCushion(ball, "x", -1);
+      hit = true;
+    }
+  } else if (ball.x > maxX) {
+    ball.x = maxX;
+    if (ball.vx > 0) {
+      bounceCushion(ball, "x", 1);
+      hit = true;
+    }
+  }
+  if (ball.z < minZ) {
+    ball.z = minZ;
+    if (ball.vz < 0) {
+      bounceCushion(ball, "z", -1);
+      hit = true;
+    }
+  } else if (ball.z > maxZ) {
+    ball.z = maxZ;
+    if (ball.vz > 0) {
+      bounceCushion(ball, "z", 1);
+      hit = true;
+    }
+  }
+  return hit;
 }
 
 export function speedFromPower(power: number): number {
@@ -91,56 +152,6 @@ function drop(ball: Ball, pocket: { x: number; z: number }, tracker: Tracker | n
   if (!tracker) return;
   if (ball.isCue) tracker.cuePotted = true;
   else if (!tracker.pocketed.some((p) => p.id === ball.id)) tracker.pocketed.push(ball);
-}
-
-function bounceRail(ball: Ball, tangent: "z" | "x", sign: number): void {
-  const kick = 0.62 * ball.side * sign;
-  if (tangent === "z") ball.vz += kick;
-  else ball.vx += kick;
-  ball.side *= 0.42;
-}
-
-function resolveCushion(ball: Ball, table: Table): boolean {
-  let hit = false;
-  const minX = -table.halfW + ball.radius;
-  const maxX = table.halfW - ball.radius;
-  const minZ = -table.halfL + ball.radius;
-  const maxZ = table.halfL - ball.radius;
-  if (ball.x < minX) {
-    ball.x = minX;
-    if (ball.vx < 0) {
-      ball.vx = -ball.vx * cushionRestitution(ball.vx);
-      ball.vz *= 1 - CUSHION_GRAB;
-      bounceRail(ball, "z", -1);
-      hit = true;
-    }
-  } else if (ball.x > maxX) {
-    ball.x = maxX;
-    if (ball.vx > 0) {
-      ball.vx = -ball.vx * cushionRestitution(ball.vx);
-      ball.vz *= 1 - CUSHION_GRAB;
-      bounceRail(ball, "z", 1);
-      hit = true;
-    }
-  }
-  if (ball.z < minZ) {
-    ball.z = minZ;
-    if (ball.vz < 0) {
-      ball.vz = -ball.vz * cushionRestitution(ball.vz);
-      ball.vx *= 1 - CUSHION_GRAB;
-      bounceRail(ball, "x", -1);
-      hit = true;
-    }
-  } else if (ball.z > maxZ) {
-    ball.z = maxZ;
-    if (ball.vz > 0) {
-      ball.vz = -ball.vz * cushionRestitution(ball.vz);
-      ball.vx *= 1 - CUSHION_GRAB;
-      bounceRail(ball, "x", 1);
-      hit = true;
-    }
-  }
-  return hit;
 }
 
 function collide(a: Ball, b: Ball): number {
