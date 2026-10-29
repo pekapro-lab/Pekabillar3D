@@ -238,8 +238,8 @@ export function PekabillarApp() {
   };
 
   return (
-    <div data-frame={rev} className="flex h-dvh flex-col bg-bg text-fg lg:flex-row">
-      <div className="table-stage relative min-h-[42vh] flex-1">
+    <div data-frame={rev} className="relative h-dvh overflow-hidden bg-bg text-fg">
+      <div className="table-stage absolute inset-0">
         <TableScene
           worldRef={worldRef}
           generation={world.generation}
@@ -249,7 +249,7 @@ export function PekabillarApp() {
         />
       </div>
 
-      <aside className="flex max-h-[58vh] w-full flex-col gap-3 overflow-y-auto border-t border-line bg-surface px-4 py-3 lg:max-h-none lg:w-96 lg:border-t-0 lg:border-l lg:px-5 lg:py-5">
+      <aside className="glass-panel absolute inset-x-0 bottom-0 z-10 flex max-h-[46vh] w-full flex-col gap-3 overflow-y-auto border-t border-line/70 px-4 py-3 lg:inset-y-4 lg:right-4 lg:left-auto lg:max-h-none lg:w-80 lg:rounded-xl lg:border">
         <header className="flex items-end justify-between gap-3">
           <div>
             <p className="text-xs tracking-widest text-brass uppercase">Estudio Pekapro</p>
@@ -278,7 +278,7 @@ export function PekabillarApp() {
                     bump();
                   }}
                   className={`h-11 rounded-lg border text-sm ${
-                    world.difficulty === item.id ? "border-brass bg-brass text-bg" : "border-line bg-bg text-fg"
+                    world.difficulty === item.id ? "border-brass bg-brass text-bg" : "border-line glass-card text-fg"
                   }`}
                 >
                   {item.label}
@@ -291,7 +291,7 @@ export function PekabillarApp() {
             <button
               type="button"
               onClick={() => start("hotseat")}
-              className="h-12 rounded-lg border border-line bg-bg font-display text-lg text-fg"
+              className="h-12 rounded-lg border border-line glass-card font-display text-lg text-fg"
             >
               Dos en la mesa
             </button>
@@ -319,7 +319,7 @@ export function PekabillarApp() {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-line bg-bg px-3 py-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-line glass-card px-3 py-2">
               <div>
                 <p className="text-xs text-muted">Racha</p>
                 <p className="font-display text-2xl leading-none">{score.run}</p>
@@ -353,7 +353,7 @@ export function PekabillarApp() {
               <button
                 type="button"
                 aria-label="Girar a la izquierda"
-                className="flex h-12 items-center justify-center rounded-lg border border-line bg-bg"
+                className="flex h-12 items-center justify-center rounded-lg border border-line glass-card"
                 onClick={() => nudge(0.04)}
               >
                 <ChevronLeft className="size-5" />
@@ -369,7 +369,7 @@ export function PekabillarApp() {
               <button
                 type="button"
                 aria-label="Girar a la derecha"
-                className="flex h-12 items-center justify-center rounded-lg border border-line bg-bg"
+                className="flex h-12 items-center justify-center rounded-lg border border-line glass-card"
                 onClick={() => nudge(-0.04)}
               >
                 <ChevronRight className="size-5" />
@@ -380,7 +380,7 @@ export function PekabillarApp() {
               {world.opening && human && !world.moving && !score.over && (
                 <button
                   type="button"
-                  className="h-11 rounded-lg border border-line bg-bg px-3 text-sm"
+                  className="h-11 rounded-lg border border-line glass-card px-3 text-sm"
                   onClick={() => {
                     const cue = cueBall(world.balls);
                     cue.isPocketed = true;
@@ -399,7 +399,7 @@ export function PekabillarApp() {
               {!score.over && (
                 <button
                   type="button"
-                  className="h-11 rounded-lg border border-line bg-bg px-3 text-sm"
+                  className="h-11 rounded-lg border border-line glass-card px-3 text-sm"
                   onClick={() => {
                     if (world.moving) return;
                     const opp = score.player === 1 ? 2 : 1;
@@ -421,7 +421,7 @@ export function PekabillarApp() {
               )}
               <button
                 type="button"
-                className="inline-flex h-11 items-center gap-2 rounded-lg border border-line bg-bg px-3 text-sm"
+                className="inline-flex h-11 items-center gap-2 rounded-lg border border-line glass-card px-3 text-sm"
                 onClick={() => start(world.mode)}
               >
                 <RotateCcw className="size-4" />
@@ -470,7 +470,7 @@ function ScoreCard({
   active: boolean;
 }) {
   return (
-    <div className={`rounded-lg border px-3 py-2 ${active ? "border-brass bg-bg" : "border-line bg-bg"}`}>
+    <div className={`rounded-lg border px-3 py-2 ${active ? "border-brass glass-card" : "border-line glass-card"}`}>
       <p className="text-xs text-muted">{label}</p>
       <p className="font-display text-3xl leading-none tabular-nums">{value}</p>
       <p className="mt-1 text-xs text-muted">
@@ -486,7 +486,7 @@ function BallTray({ balls, score, mode }: { balls: Ball[]; score: ScoreState; mo
   const stripes = balls.filter((ball) => ball.type === "stripe").sort((a, b) => a.number - b.number);
   const eight = balls.find((ball) => ball.type === "eight");
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-line bg-bg px-3 py-2">
+    <div className="flex flex-col gap-2 rounded-lg border border-line glass-card px-3 py-2">
       <BallRow label="Lisas" owner={ownerOf("solid", score, mode)} balls={solids} />
       <BallRow label="Rayadas" owner={ownerOf("stripe", score, mode)} balls={stripes} />
       {eight && (
