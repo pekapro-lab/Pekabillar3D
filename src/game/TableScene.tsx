@@ -468,7 +468,6 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
     if (!live || !ref.current) return;
     ref.current.position.set(live.x, live.radius, live.z);
     if (shade.current) shade.current.position.set(live.x, 0.004, live.z);
-    if (badge.current) badge.current.position.set(live.x, live.radius + 0.001, live.z);
   }, [id, worldRef]);
 
   useFrame((_, delta) => {
@@ -481,24 +480,22 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
       if (badge.current) badge.current.visible = false;
       return;
     }
-    const dx = live.x - mesh.position.x;
-    const dz = live.z - mesh.position.z;
-    const dist = Math.hypot(dx, dz);
+    const step = Math.min(delta, 0.05);
+    const travel = Math.hypot(live.vx, live.vz);
     mesh.visible = true;
     mesh.position.set(live.x, live.radius, live.z);
-    if (dist > 0.0001 && dist < 0.2) {
-      rollAxis.set(-dz, 0, dx).normalize();
-      mesh.rotateOnWorldAxis(rollAxis, dist / live.radius);
+    if (travel > 0.03) {
+      rollAxis.set(live.vz, 0, -live.vx).normalize();
+      mesh.rotateOnWorldAxis(rollAxis, (travel * step) / live.radius);
     }
-    if (Math.abs(live.side) > 0.02) mesh.rotateOnWorldAxis(upAxis, (-live.side / live.radius) * Math.min(delta, 0.05));
+    if (live.isCue && Math.abs(live.side) > 0.05) {
+      mesh.rotateOnWorldAxis(upAxis, (-live.side / live.radius) * step);
+    }
     if (shade.current) {
       shade.current.visible = true;
       shade.current.position.set(live.x, 0.004, live.z);
     }
-    if (badge.current) {
-      badge.current.visible = true;
-      badge.current.position.set(live.x, live.radius + 0.001, live.z);
-    }
+    if (badge.current) badge.current.visible = true;
   });
 
   if (!ball) return null;
@@ -515,13 +512,13 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
           clearcoatRoughness={0.03}
           envMapIntensity={0.55}
         />
+        {badgeTex && (
+          <mesh ref={badge} position={[0, ball.radius + 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[ball.radius * 0.36, 24]} />
+            <meshBasicMaterial map={badgeTex} transparent depthWrite={false} polygonOffset polygonOffsetFactor={-2} />
+          </mesh>
+        )}
       </mesh>
-      {badgeTex && (
-        <mesh ref={badge} rotation={[-Math.PI / 2, 0, 0]} position={[ball.x, ball.radius + 0.001, ball.z]}>
-          <circleGeometry args={[ball.radius * 0.36, 24]} />
-          <meshBasicMaterial map={badgeTex} transparent depthWrite={false} />
-        </mesh>
-      )}
       {shadeTex && (
         <mesh ref={shade} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[ball.radius * 1.7, 20]} />

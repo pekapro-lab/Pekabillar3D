@@ -199,7 +199,7 @@ function collide(a: Ball, b: Ball): number {
   a.vz -= impulse * nz;
   b.vx += impulse * nx;
   b.vz += impulse * nz;
-  const roll = impulse * 0.42;
+  const roll = impulse * 0.92;
   b.sx += nx * roll;
   b.sz += nz * roll;
 
