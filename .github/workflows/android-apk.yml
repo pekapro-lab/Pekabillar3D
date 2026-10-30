@@ -51,14 +51,15 @@ jobs:
             catch { res.writeHead(404); res.end(); }
           }).listen(8099);
           const b = await chromium.launch({ args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-          const p = await b.newPage({ viewport: { width: 780, height: 360 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2.75 });
+          const p = await b.newPage({ viewport: { width: 780, height: 360 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
           const errs = [];
           p.on("pageerror", (e) => errs.push(e.message));
           p.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
           await p.goto("http://127.0.0.1:8099/", { waitUntil: "load" });
           await p.waitForTimeout(6000);
-          await p.screenshot({ path: "smoke-landscape.png" });
           const txt = await p.innerText("body"); const canvases = await p.locator("canvas").count();
+          // WebGL por software en el runner es lento: la captura no debe tumbar el build.
+          try { await p.screenshot({ path: "smoke-landscape.png", timeout: 90000 }); } catch (e) { console.log("::warning::captura fallida: " + e.message.split("\n")[0]); }
           console.log("canvas:", canvases, "text:", txt.slice(0, 120).replace(/\n/g, " | "));
           console.log("errors:", errs);
           await b.close(); srv.close();
@@ -72,6 +73,7 @@ jobs:
         with:
           name: smoke-screenshot
           path: smoke-landscape.png
+          if-no-files-found: warn
 
       - name: Decode release keystore
         env:
