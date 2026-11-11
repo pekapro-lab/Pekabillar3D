@@ -4,7 +4,9 @@ import { OrbitControls } from "@react-three/drei";
 import {
   ACESFilmicToneMapping,
   CanvasTexture,
+  CubeCamera,
   DoubleSide,
+  LinearMipmapLinearFilter,
   MOUSE,
   PMREMGenerator,
   Raycaster,
@@ -13,6 +15,7 @@ import {
   TOUCH,
   Vector2,
   Vector3,
+  WebGLCubeRenderTarget,
   type Group,
   type Mesh,
   type MeshStandardMaterial,
@@ -177,8 +180,8 @@ function contactShadeTexture(): CanvasTexture | null {
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
   const fade = ctx.createRadialGradient(64, 64, 6, 64, 64, 62);
-  fade.addColorStop(0, "rgba(0,0,0,0.7)");
-  fade.addColorStop(0.45, "rgba(0,0,0,0.26)");
+  fade.addColorStop(0, "rgba(0,0,0,0.35)");
+  fade.addColorStop(0.45, "rgba(0,0,0,0.12)");
   fade.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = fade;
   ctx.fillRect(0, 0, 128, 128);
@@ -340,16 +343,24 @@ function ClothPointer({
 function HallLight() {
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
+  const cube = useRef<CubeCamera | null>(null);
+  const tick = useRef(0);
   useLayoutEffect(() => {
     const pmrem = new PMREMGenerator(gl);
     const room = new RoomEnvironment();
     const env = pmrem.fromScene(room, 0.04).texture;
     scene.environment = env;
-    scene.environmentIntensity = 0.62;
+    scene.environmentIntensity = 0.7;
+    const target = new WebGLCubeRenderTarget(256);
+    target.texture.minFilter = LinearMipmapLinearFilter;
+    target.texture.generateMipmaps = true;
+    cube.current = new CubeCamera(0.08, 28, target);
     return () => {
       env.dispose();
       pmrem.dispose();
-      if (scene.environment === env) scene.environment = null;
+      target.dispose();
+      cube.current = null;
+      if (scene.environment === env || scene.environment === target.texture) scene.environment = null;
       room.traverse((obj) => {
         const mesh = obj as Mesh;
         mesh.geometry?.dispose();
@@ -359,6 +370,16 @@ function HallLight() {
       });
     };
   }, [gl, scene]);
+  useFrame(() => {
+    const cam = cube.current;
+    if (!cam) return;
+    tick.current += 1;
+    if (tick.current % 2 !== 0) return;
+    cam.position.set(0, 0.46, -0.05);
+    cam.update(gl, scene);
+    if (scene.environment !== cam.renderTarget.texture) scene.environment = cam.renderTarget.texture;
+    scene.environmentIntensity = 0.92;
+  });
   return null;
 }
 
@@ -408,7 +429,7 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
       </mesh>
       <mesh position={[0, -0.11, 0]} castShadow receiveShadow>
         <boxGeometry args={[width + 0.42, 0.16, length + 0.42]} />
-        <meshStandardMaterial map={wood} roughness={0.68} metalness={0} />
+        <meshStandardMaterial map={wood} roughness={0.5} metalness={0.04} envMapIntensity={0.55} />
       </mesh>
       {[
         [-1, -1],
@@ -480,7 +501,7 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
           </mesh>
           <mesh position={[x + Math.sign(x) * 0.02, railH * 0.78, z]} castShadow>
             <boxGeometry args={[thick * 0.7, railH * 0.36, sideLen]} />
-            <meshStandardMaterial map={wood} roughness={0.62} metalness={0} />
+            <meshStandardMaterial map={wood} roughness={0.46} metalness={0.05} envMapIntensity={0.6} />
           </mesh>
         </group>
       ))}
@@ -496,7 +517,7 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
           </mesh>
           <mesh position={[0, railH * 0.78, z + Math.sign(z) * 0.02]} castShadow>
             <boxGeometry args={[endLen, railH * 0.36, thick * 0.7]} />
-            <meshStandardMaterial map={wood} roughness={0.62} metalness={0} />
+            <meshStandardMaterial map={wood} roughness={0.46} metalness={0.05} envMapIntensity={0.6} />
           </mesh>
         </group>
       ))}
@@ -571,8 +592,8 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
           roughness={ball.isCue ? 0.04 : 0.1}
           metalness={0}
           clearcoat={1}
-          clearcoatRoughness={0.03}
-          envMapIntensity={0.55}
+          clearcoatRoughness={0.04}
+          envMapIntensity={1.25}
         />
         {badgeTex && (
           <mesh ref={badge} position={[0, ball.radius + 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -789,22 +810,38 @@ function LiveTable({
       <hemisphereLight args={["#fff8ee", "#14281e", 0.18]} />
       <ambientLight intensity={0.035} />
       <directionalLight
-        position={[0.6, 6.8, 0.2]}
-        intensity={2.05}
+        position={[2.6, 4.6, 1.7]}
+        intensity={2.35}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
-        shadow-bias={-0.00018}
-        shadow-normalBias={0.02}
-        shadow-camera-near={2}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.028}
+        shadow-radius={2.5}
+        shadow-camera-near={1}
         shadow-camera-far={16}
-        shadow-camera-left={-2.3}
-        shadow-camera-right={2.3}
-        shadow-camera-top={2.7}
-        shadow-camera-bottom={-2.7}
+        shadow-camera-left={-3.1}
+        shadow-camera-right={3.1}
+        shadow-camera-top={3.4}
+        shadow-camera-bottom={-3.4}
+      >
+        <object3D attach="target" position={[0, 0, 0]} />
+      </directionalLight>
+      <directionalLight position={[-2.8, 3.2, -1.6]} intensity={0.22} color="#d7e4ff" />
+      <spotLight
+        position={[0.2, 3.5, 0.35]}
+        angle={0.78}
+        penumbra={0.55}
+        intensity={18}
+        distance={9}
+        decay={2}
+        color="#fff4e2"
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-bias={-0.0004}
+        shadow-radius={2}
       />
-      <directionalLight position={[-2.8, 3.2, -1.6]} intensity={0.28} color="#d7e4ff" />
-      <spotLight position={[0, 3.8, 0.05]} angle={0.95} penumbra={0.85} intensity={16} distance={9} decay={2} color="#fff4e2" />
       <TableMesh worldRef={worldRef} />
       <group key={generation}>
         {ids.map((id) => (
