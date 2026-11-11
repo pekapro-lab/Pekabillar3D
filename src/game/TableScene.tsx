@@ -88,9 +88,11 @@ function feltMaps(anisotropy: number, rgb: [number, number, number]): { map: Can
 }
 
 function woodMap(anisotropy: number, dark = false): CanvasTexture {
+  const w = 512;
+  const h = 512;
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 512;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d");
   const tex = new CanvasTexture(canvas);
   tex.wrapS = RepeatWrapping;
@@ -98,24 +100,68 @@ function woodMap(anisotropy: number, dark = false): CanvasTexture {
   tex.colorSpace = SRGBColorSpace;
   tex.anisotropy = anisotropy;
   if (!ctx) return tex;
-  const grain = ctx.createLinearGradient(0, 0, 256, 0);
-  grain.addColorStop(0, dark ? "#1a100c" : "#4a2816");
-  grain.addColorStop(0.5, dark ? "#3a2418" : "#7a4630");
-  grain.addColorStop(1, dark ? "#1c120e" : "#3e2214");
-  ctx.fillStyle = grain;
-  ctx.fillRect(0, 0, 256, 512);
-  for (let x = 0; x < 256; x += 2) {
-    const tone = dark ? 36 + (x % 13) : 90 + (x % 17) * 2;
-    ctx.strokeStyle = `rgba(${tone + 28},${Math.floor(tone * 0.42)},${Math.floor(tone * 0.2)},0.22)`;
+  const base = ctx.createLinearGradient(0, 0, w, 0);
+  if (dark) {
+    base.addColorStop(0, "#24140e");
+    base.addColorStop(0.5, "#3a2218");
+    base.addColorStop(1, "#1c100c");
+  } else {
+    base.addColorStop(0, "#5a2d16");
+    base.addColorStop(0.28, "#8d4e2a");
+    base.addColorStop(0.55, "#6a3820");
+    base.addColorStop(0.8, "#4e2814");
+    base.addColorStop(1, "#7a4124");
+  }
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, w, h);
+  for (let x = 0; x < w; x++) {
+    const wave = Math.sin(x * 0.018) * 10 + Math.sin(x * 0.006) * 18;
+    const pore = dark ? 22 + (x % 19) : 55 + (x % 31);
+    ctx.strokeStyle = `rgba(${pore + 42},${Math.floor(pore * 0.36)},${Math.floor(pore * 0.14)},${0.05 + (x % 7) * 0.012})`;
+    ctx.lineWidth = x % 11 === 0 ? 1.6 : 1;
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x + Math.sin(x) * 2, 512);
+    ctx.bezierCurveTo(x + wave, h * 0.3, x - wave * 0.45, h * 0.68, x + Math.sin(x * 0.04) * 4, h);
     ctx.stroke();
   }
-  for (let i = 0; i < 500; i++) {
-    ctx.fillStyle = "rgba(28,12,6,0.12)";
-    ctx.fillRect(Math.random() * 256, Math.random() * 512, 1, 6 + Math.random() * 18);
+  for (let i = 0; i < 2200; i++) {
+    ctx.fillStyle = "rgba(28,10,4,0.2)";
+    ctx.fillRect(Math.random() * w, Math.random() * h, 1, 4 + Math.random() * 22);
   }
+  ctx.globalAlpha = 0.05;
+  ctx.strokeStyle = dark ? "#6a4030" : "#e0a070";
+  for (let i = 0; i < 6; i++) {
+    ctx.beginPath();
+    ctx.moveTo(Math.random() * w, 0);
+    ctx.quadraticCurveTo(Math.random() * w, h * 0.5, Math.random() * w, h);
+    ctx.stroke();
+  }
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function leatherMap(anisotropy: number): CanvasTexture {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const tex = new CanvasTexture(canvas);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = anisotropy;
+  if (!ctx) return tex;
+  ctx.fillStyle = "#3a241c";
+  ctx.fillRect(0, 0, size, size);
+  const image = ctx.getImageData(0, 0, size, size);
+  for (let i = 0; i < image.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * 28;
+    image.data[i] = Math.min(255, Math.max(0, image.data[i] + n));
+    image.data[i + 1] = Math.min(255, Math.max(0, image.data[i + 1] + n * 0.55));
+    image.data[i + 2] = Math.min(255, Math.max(0, image.data[i + 2] + n * 0.35));
+  }
+  ctx.putImageData(image, 0, 0);
   tex.needsUpdate = true;
   return tex;
 }
@@ -328,14 +374,16 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
   const cloth = useMemo(() => feltMaps(anisotropy, felt.rgb), [anisotropy, felt]);
   const wood = useMemo(() => woodMap(anisotropy), [anisotropy]);
   const woodDark = useMemo(() => woodMap(anisotropy, true), [anisotropy]);
+  const leather = useMemo(() => leatherMap(anisotropy), [anisotropy]);
   useEffect(
     () => () => {
       cloth.map.dispose();
       cloth.bump.dispose();
       wood.dispose();
       woodDark.dispose();
+      leather.dispose();
     },
-    [cloth, wood, woodDark],
+    [cloth, wood, woodDark, leather],
   );
   const table = worldRef.current.table;
   const { width, length, halfW, halfL, headZ, footZ } = table;
@@ -360,7 +408,7 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
       </mesh>
       <mesh position={[0, -0.11, 0]} castShadow receiveShadow>
         <boxGeometry args={[width + 0.42, 0.16, length + 0.42]} />
-        <meshPhysicalMaterial map={wood} roughness={0.42} metalness={0.04} clearcoat={0.28} clearcoatRoughness={0.4} />
+        <meshStandardMaterial map={wood} roughness={0.68} metalness={0} />
       </mesh>
       {[
         [-1, -1],
@@ -388,18 +436,32 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
         <meshBasicMaterial color="#f4f0e6" transparent opacity={0.5} />
       </mesh>
 
-      {table.pockets.map((pocket) => (
-        <group key={pocket.id} position={[pocket.x, 0.004, pocket.z]}>
-          <mesh>
-            <cylinderGeometry args={[pocket.r * 0.92, pocket.r * 0.78, 0.05, 28]} />
-            <meshStandardMaterial color="#050607" roughness={0.4} metalness={0.2} />
-          </mesh>
-          <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[pocket.r * 0.86, pocket.r * 1.22, 28]} />
-            <meshPhysicalMaterial color="#c4923e" metalness={0.92} roughness={0.22} clearcoat={0.4} side={DoubleSide} />
-          </mesh>
-        </group>
-      ))}
+      {table.pockets.map((pocket) => {
+        const side = Math.abs(pocket.z) < 0.05;
+        const ox = Math.sign(pocket.x) * 0.03;
+        const oz = side ? 0 : Math.sign(pocket.z) * 0.03;
+        const mouth = pocket.r * (side ? 0.78 : 0.9);
+        return (
+          <group key={pocket.id} position={[pocket.x + ox, 0, pocket.z + oz]} scale={side ? [1, 1, 1.28] : [1, 1, 1]}>
+            <mesh position={[0, -0.05, 0]}>
+              <cylinderGeometry args={[mouth * 0.92, mouth * 0.5, 0.12, 28]} />
+              <meshStandardMaterial color="#050403" roughness={0.95} />
+            </mesh>
+            <mesh position={[0, -0.12, 0]}>
+              <coneGeometry args={[mouth * 0.95, 0.11, 16, 1, true]} />
+              <meshStandardMaterial map={leather} color="#241610" roughness={0.92} side={DoubleSide} />
+            </mesh>
+            <mesh position={[0, 0.016, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[mouth * 0.95, 0.022, 12, 32]} />
+              <meshStandardMaterial map={leather} color="#8a4e36" roughness={0.74} />
+            </mesh>
+            <mesh position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[mouth * 1.05, mouth * 1.42, 32]} />
+              <meshStandardMaterial map={leather} color="#6e3b2a" roughness={0.86} side={DoubleSide} />
+            </mesh>
+          </group>
+        );
+      })}
 
       {[
         [-halfW - thick / 2, sideZ],
@@ -418,7 +480,7 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
           </mesh>
           <mesh position={[x + Math.sign(x) * 0.02, railH * 0.78, z]} castShadow>
             <boxGeometry args={[thick * 0.7, railH * 0.36, sideLen]} />
-            <meshPhysicalMaterial map={wood} roughness={0.4} metalness={0.04} clearcoat={0.22} clearcoatRoughness={0.45} />
+            <meshStandardMaterial map={wood} roughness={0.62} metalness={0} />
           </mesh>
         </group>
       ))}
@@ -434,14 +496,14 @@ function TableMesh({ worldRef }: { worldRef: RefObject<World> }) {
           </mesh>
           <mesh position={[0, railH * 0.78, z + Math.sign(z) * 0.02]} castShadow>
             <boxGeometry args={[endLen, railH * 0.36, thick * 0.7]} />
-            <meshPhysicalMaterial map={wood} roughness={0.4} metalness={0.04} clearcoat={0.22} clearcoatRoughness={0.45} />
+            <meshStandardMaterial map={wood} roughness={0.62} metalness={0} />
           </mesh>
         </group>
       ))}
       {sights.map(([x, z]) => (
-        <mesh key={`${x}-${z}`} position={[x, railH + 0.004, z]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.008, 16]} />
-          <meshPhysicalMaterial color="#d7b56a" metalness={0.8} roughness={0.32} />
+        <mesh key={`${x}-${z}`} position={[x, railH + 0.003, z]} rotation={[-Math.PI / 2, 0, Math.PI / 4]}>
+          <planeGeometry args={[0.016, 0.016]} />
+          <meshStandardMaterial color="#f4ead4" roughness={0.42} metalness={0} />
         </mesh>
       ))}
     </group>
