@@ -340,26 +340,31 @@ function ClothPointer({
   return null;
 }
 
-function HallLight() {
+function HallLight({ worldRef }: { worldRef: RefObject<World> }) {
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
+  const camera = useThree((state) => state.camera);
   const cube = useRef<CubeCamera | null>(null);
   const tick = useRef(0);
+  const lastCam = useRef(new Vector3(99, 99, 99));
   useLayoutEffect(() => {
     const pmrem = new PMREMGenerator(gl);
     const room = new RoomEnvironment();
     const env = pmrem.fromScene(room, 0.04).texture;
     scene.environment = env;
     scene.environmentIntensity = 0.7;
-    const target = new WebGLCubeRenderTarget(256);
+    const target = new WebGLCubeRenderTarget(128);
     target.texture.minFilter = LinearMipmapLinearFilter;
     target.texture.generateMipmaps = true;
     cube.current = new CubeCamera(0.08, 28, target);
+    gl.shadowMap.autoUpdate = false;
+    gl.shadowMap.needsUpdate = true;
     return () => {
       env.dispose();
       pmrem.dispose();
       target.dispose();
       cube.current = null;
+      gl.shadowMap.autoUpdate = true;
       if (scene.environment === env || scene.environment === target.texture) scene.environment = null;
       room.traverse((obj) => {
         const mesh = obj as Mesh;
@@ -371,10 +376,16 @@ function HallLight() {
     };
   }, [gl, scene]);
   useFrame(() => {
+    const moving = worldRef.current.moving;
+    if (moving) gl.shadowMap.needsUpdate = true;
     const cam = cube.current;
     if (!cam) return;
     tick.current += 1;
-    if (tick.current % 2 !== 0) return;
+    const interval = moving ? 6 : 24;
+    if (tick.current % interval !== 0) return;
+    const camMoved = camera.position.distanceToSquared(lastCam.current) > 0.0008;
+    if (!moving && !camMoved && scene.environment === cam.renderTarget.texture) return;
+    lastCam.current.copy(camera.position);
     cam.position.set(0, 0.46, -0.05);
     cam.update(gl, scene);
     if (scene.environment !== cam.renderTarget.texture) scene.environment = cam.renderTarget.texture;
@@ -585,7 +596,7 @@ function BallView({ id, worldRef }: { id: number; worldRef: RefObject<World> }) 
   return (
     <>
       <mesh ref={ref} castShadow>
-        <sphereGeometry args={[ball.radius, 48, 32]} />
+        <sphereGeometry args={[ball.radius, 32, 20]} />
         <meshPhysicalMaterial
           map={tex ?? undefined}
           color={tex ? "#ffffff" : ball.color}
@@ -806,7 +817,7 @@ function LiveTable({
   return (
     <>
       <color attach="background" args={["#100e0c"]} />
-      <HallLight />
+      <HallLight worldRef={worldRef} />
       <hemisphereLight args={["#fff8ee", "#14281e", 0.18]} />
       <ambientLight intensity={0.035} />
       <directionalLight
@@ -836,11 +847,6 @@ function LiveTable({
         distance={9}
         decay={2}
         color="#fff4e2"
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-        shadow-bias={-0.0004}
-        shadow-radius={2}
       />
       <TableMesh worldRef={worldRef} />
       <group key={generation}>
@@ -887,9 +893,9 @@ export function TableScene({
     <Canvas
       className="h-full w-full"
       shadows
-      dpr={[1, 2]}
+      dpr={[1, 1.5]}
       camera={{ position: [0.15, 2.42, 2.28], fov: 38, near: 0.02, far: 40 }}
-      gl={{ antialias: true }}
+      gl={{ antialias: true, powerPreference: "high-performance", stencil: false }}
       onCreated={({ gl, camera }) => {
         gl.toneMapping = ACESFilmicToneMapping;
         gl.toneMappingExposure = 0.98;
